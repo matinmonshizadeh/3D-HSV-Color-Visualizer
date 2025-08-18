@@ -1,0 +1,225 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(to bottom, #f0f4f8, #d9e2ec);
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 20px 10px;
+  margin: 0;
+}
+
+.container {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.5em;
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 20px;
+}
+
+#hsvCone {
+  display: block;
+  margin: 0 auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 280px;
+  height: 280px;
+}
+
+.controls-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.controls {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+}
+
+label {
+  display: grid;
+  grid-template-columns: auto;
+  justify-items: start;
+  gap: 8px;
+  font-weight: 600;
+  color: #34495e;
+}
+
+label > select,
+label > input[type="number"] {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1em;
+  background: #f9f9f9;
+  transition: border-color 0.3s ease;
+  width: 100%;
+}
+
+label > input[type="number"] {
+  width: 80px;
+  text-align: center;
+}
+
+label > select:focus,
+label > input[type="number"]:focus {
+  border-color: #3498db;
+  outline: none;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  appearance: none;
+  transition: background 0.3s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #3498db;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #3498db;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.1);
+}
+
+.sample {
+  margin-top: 20px;
+  text-align: center;
+  width: 100%;
+}
+
+#colorBox {
+  width: 100px;
+  height: 100px;
+  margin: 15px auto;
+  border-radius: 12px;
+  border: 2px solid #bdc3c7;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease;
+}
+
+#colorBox:hover {
+  transform: scale(1.05);
+}
+
+#hexDisplay {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+@media (min-width: 480px) {
+  body {
+    padding: 40px 20px;
+  }
+
+  .container {
+    padding: 30px;
+    border-radius: 16px;
+  }
+
+  h1 {
+    font-size: 2em;
+    margin-bottom: 30px;
+  }
+
+  .content-wrapper {
+    gap: 30px;
+  }
+
+  #hsvCone {
+    width: 350px;
+    height: 350px;
+  }
+
+  .controls {
+    margin-top: 20px;
+    gap: 20px;
+  }
+
+  .sample {
+    margin-top: 30px;
+  }
+
+  #colorBox {
+    width: 120px;
+    height: 120px;
+  }
+
+  label {
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    justify-items: start;
+  }
+
+  label > select,
+  label > input[type="number"] {
+    width: auto;
+  }
+
+  label > input[type="number"] {
+    width: 60px;
+  }
+}
+
+@media (min-width: 768px) {
+  .content-wrapper {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  #hsvCone {
+    width: 400px;
+    height: 400px;
+  }
+}
