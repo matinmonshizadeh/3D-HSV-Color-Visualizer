@@ -21,7 +21,7 @@ This is a personal project I built to get a feel for how the HSV colour model ma
 - Marker on the cone for the selected colour, drawn as a dashed ring when it is on the far side
 - Live colour preview with RGB and HEX
 - Hue in degrees (0-360) or in the OpenCV range (0-179), converted exactly
-- Drag with the mouse, a finger or a pen to orbit the view
+- Drag with the mouse, a finger or a pen to orbit the view; the motion is eased so it stays smooth
 - Sharp rendering on HiDPI screens and at every responsive breakpoint
 
 ## How it works
@@ -30,7 +30,7 @@ This is a personal project I built to get a feel for how the HSV colour model ma
 
 **Camera.** An orbit camera sits on a sphere around the middle of the cone. Two angles (azimuth and elevation) give its position, and a look-at basis is built from it: forward points at the target, right is forward x world-up, and up is right x forward. Elevation is clamped just short of the poles so the basis never degenerates.
 
-**Projection.** Each world point is expressed in the camera basis, then projected with a pinhole model: screen x = cx + f x / z, screen y = cy - f y / z. Points on or behind the near plane are flagged and culled instead of drawn. Triangles facing away from the camera are dropped using the analytic surface normal, and the rest are sorted far to near and filled in that order (painter's algorithm).
+**Projection.** Each world point is expressed in the camera basis, then projected with a pinhole model: screen x = cx + f x / z, screen y = cy - f y / z. Points on or behind the near plane are flagged and culled instead of drawn. The mesh is built once in world space; every frame, faces facing away from the camera are dropped using the analytic surface normal, and the rest are projected, sorted far to near and filled in that order (painter's algorithm). Edge strokes are skipped while the view is moving and drawn once it settles.
 
 **HSV to RGB.** The standard sector formula: chroma c = v s, the secondary component x = c (1 - |(h/60 mod 2) - 1|), and an offset m = v - c added to each channel. Hue is wrapped into [0, 360) so 360 and 0 both give red.
 

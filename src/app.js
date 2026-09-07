@@ -62,8 +62,10 @@ const NEAR = 1;                               // near plane (view units); nothin
 
 /* Camera */
 const MAX_ELEVATION = Math.PI / 2 - 0.05;     // keeps the camera off the poles
-const ORBIT_SPEED = 0.01;                     // radians per pixel of drag
-const camera = { radius: 600, angleY: 0.0, angleX: 0.6 };
+const ORBIT_SPEED = 0.008;                    // radians per pixel of drag on a 400 px canvas (about 1:1 grab)
+const SMOOTHING = 0.35;                       // fraction of the remaining drag distance covered per frame
+const camera = { radius: 600, angleY: 0.0, angleX: 0.6 };          // what is drawn
+const target = { angleY: camera.angleY, angleX: camera.angleX };   // where the drag wants it
 
 /* Logical (CSS pixel) size of the canvas; the backing store is scaled by DPR */
 const view = { w: canvas.width, h: canvas.height };
@@ -202,29 +204,18 @@ function facesCamera(normal, point, cam) {
 }
 
 /**
- * Build a projected triangle, or null if it is back-facing or crosses the
- * near plane. Back-face culling uses the analytic surface normal, so the
- * cone's far side never has to be sorted or drawn.
+ * The mesh is built once in world space. Each face is a quad (a triangle at
+ * the apex ring and the disc centre) with its outward normal, centroid and
+ * fill colour precomputed, so a frame only has to cull, project and sort.
  */
-function makeFace(cam, A, B, C, normal, rgb) {
-  const centroid = {
-    x: (A.x + B.x + C.x) / 3,
-    y: (A.y + B.y + C.y) / 3,
-    z: (A.z + B.z + C.z) / 3,
-  };
-  if (!facesCamera(normal, centroid, cam)) return null;
-  const p0 = project(cam, A);
-  const p1 = project(cam, B);
-  const p2 = project(cam, C);
-  if (!p0.visible || !p1.visible || !p2.visible) return null;
-  return { p0, p1, p2, depth: (p0.z + p1.z + p2.z) / 3, rgb };
-}
-
-/** Tessellate the cone: lateral surface (S = 255) plus the top disc (V = 255). */
-function buildConeFaces(cam) {
+function buildMesh() {
   const faces = [];
-  const push = (f) => { if (f) faces.push(f); };
   const TWO_PI = Math.PI * 2;
+  const add = (pts, normal, rgb) => {
+    const c = { x: 0, y: 0, z: 0 };
+    for (const p of pts) { c.x += p.x / pts.length; c.y += p.y / pts.length; c.z += p.z / pts.length; }
+    faces.push({ pts, normal, centroid: c, fill: `rgb(${rgb[0]},${rgb[1]},${rgb[2]})` });
+  };
 
   // Lateral surface: rings from the apex (V = 0) up to the disc (V = 255).
   for (let i = 0; i < STEPS_V; i++) {
@@ -238,16 +229,12 @@ function buildConeFaces(cam) {
       const a1 = (j / STEPS_H) * TWO_PI;
       const a2 = ((j + 1) / STEPS_H) * TWO_PI;
       const hueDeg = (j / STEPS_H) * 360;
-      const rgb = hsvToRgb(hueDeg, 255, vLayer);
-      const n = lateralNormal((a1 + a2) / 2);
-
       const P11 = conePoint(a1, y1, r1);
       const P12 = conePoint(a2, y1, r1);
       const P21 = conePoint(a1, y2, r2);
       const P22 = conePoint(a2, y2, r2);
-
-      if (r1 > 0) push(makeFace(cam, P11, P12, P22, n, rgb)); // degenerate at the apex
-      push(makeFace(cam, P11, P22, P21, n, rgb));
+      // At the apex P11 and P12 coincide, so the quad collapses to a triangle.
+      add(r1 > 0 ? [P11, P12, P22, P21] : [P11, P22, P21], lateralNormal((a1 + a2) / 2), hsvToRgb(hueDeg, 255, vLayer));
     }
   }
 
@@ -262,34 +249,58 @@ function buildConeFaces(cam) {
       const a1 = (j / STEPS_H) * TWO_PI;
       const a2 = ((j + 1) / STEPS_H) * TWO_PI;
       const hueDeg = (j / STEPS_H) * 360;
-      const rgb = hsvToRgb(hueDeg, sLayer, 255);
-
       const P11 = conePoint(a1, HEIGHT, r1);
       const P12 = conePoint(a2, HEIGHT, r1);
       const P21 = conePoint(a1, HEIGHT, r2);
       const P22 = conePoint(a2, HEIGHT, r2);
-
-      if (r1 > 0) push(makeFace(cam, P11, P12, P22, DISC_NORMAL, rgb)); // degenerate at the centre
-      push(makeFace(cam, P11, P22, P21, DISC_NORMAL, rgb));
+      add(r1 > 0 ? [P11, P12, P22, P21] : [P11, P22, P21], DISC_NORMAL, hsvToRgb(hueDeg, sLayer, 255));
     }
   }
   return faces;
 }
 
-/** Painter's algorithm: sort far to near, then fill in that order. */
-function drawFaces(faces) {
-  faces.sort((a, b) => b.depth - a.depth);
+const MESH = buildMesh();
+
+/**
+ * Cull, project and depth-sort the mesh for this camera. Back-face culling
+ * uses the analytic normal so the far side is never sorted or drawn; faces
+ * that cross the near plane are dropped. Result is in painter's order.
+ */
+function projectMesh(cam) {
+  const out = [];
+  for (const f of MESH) {
+    if (!facesCamera(f.normal, f.centroid, cam)) continue;
+    const pts = new Array(f.pts.length);
+    let depth = 0;
+    let ok = true;
+    for (let k = 0; k < f.pts.length; k++) {
+      const p = project(cam, f.pts[k]);
+      if (!p.visible) { ok = false; break; }
+      pts[k] = p;
+      depth += p.z;
+    }
+    if (ok) out.push({ pts, depth: depth / pts.length, fill: f.fill });
+  }
+  out.sort((a, b) => b.depth - a.depth);
+  return out;
+}
+
+/**
+ * Fill the sorted faces far to near. The faint edge strokes are the most
+ * expensive part of a frame, so they are only drawn once the view has
+ * settled (withEdges = false while dragging or easing).
+ */
+function drawFaces(faces, withEdges) {
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(0,0,0,0.08)";
   for (const f of faces) {
     ctx.beginPath();
-    ctx.moveTo(f.p0.sx, f.p0.sy);
-    ctx.lineTo(f.p1.sx, f.p1.sy);
-    ctx.lineTo(f.p2.sx, f.p2.sy);
+    ctx.moveTo(f.pts[0].sx, f.pts[0].sy);
+    for (let k = 1; k < f.pts.length; k++) ctx.lineTo(f.pts[k].sx, f.pts[k].sy);
     ctx.closePath();
-    ctx.fillStyle = `rgb(${f.rgb[0]},${f.rgb[1]},${f.rgb[2]})`;
+    ctx.fillStyle = f.fill;
     ctx.fill();
-    ctx.stroke();
+    if (withEdges) ctx.stroke();
   }
 }
 
@@ -396,26 +407,45 @@ function drawGuides(cam) {
 }
 
 /** Full frame: background, cone mesh, selected-colour marker, guides. */
-function draw() {
+function draw(withEdges = true) {
   ctx.fillStyle = "#ddd";
   ctx.fillRect(0, 0, view.w, view.h);
 
   const cam = getCamera();
-  drawFaces(buildConeFaces(cam));
+  drawFaces(projectMesh(cam), withEdges);
 
   const { hDeg, s, v } = readSliders();
   drawMarker(cam, hDeg, s, v);
   drawGuides(cam);
 }
 
-/** Coalesce redraw requests into one frame (drags fire many events per frame). */
+/**
+ * One animation frame. The drawn camera eases toward the drag target, which
+ * turns jittery pointer deltas into smooth motion, and frames keep coming
+ * only while there is distance left to cover. Edge strokes are skipped
+ * while moving; a final full-quality frame is drawn once the view settles.
+ */
+function frame() {
+  renderQueued = false;
+  const dY = target.angleY - camera.angleY;
+  const dX = target.angleX - camera.angleX;
+  const moving = Math.abs(dY) > 1e-4 || Math.abs(dX) > 1e-4;
+  if (moving) {
+    camera.angleY += dY * SMOOTHING;
+    camera.angleX += dX * SMOOTHING;
+  } else {
+    camera.angleY = target.angleY;
+    camera.angleX = target.angleX;
+  }
+  draw(!moving && !drag.active);
+  if (moving) requestRender();
+}
+
+/** Coalesce redraw requests into one animation frame. */
 function requestRender() {
   if (renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(() => {
-    renderQueued = false;
-    draw();
-  });
+  requestAnimationFrame(frame);
 }
 
 /* --------------------------------------------------------------- 6. Events */
@@ -483,17 +513,27 @@ function onPointerMove(e) {
   if (!drag.active || e.pointerId !== drag.pointerId) return;
   const dx = e.clientX - drag.x;
   const dy = e.clientY - drag.y;
-  camera.angleY = (camera.angleY + dx * ORBIT_SPEED) % (Math.PI * 2);
-  camera.angleX = clamp(camera.angleX - dy * ORBIT_SPEED, -MAX_ELEVATION, MAX_ELEVATION);
   drag.x = e.clientX;
   drag.y = e.clientY;
+  // "Grab" semantics: the surface under the pointer follows it. Dragging
+  // right spins the cone to the right (the camera orbits the other way);
+  // dragging down tips the near side down (the camera rises).
+  const speed = ORBIT_SPEED * (REF_SIZE / view.w);
+  target.angleY -= dx * speed;
+  target.angleX = clamp(target.angleX + dy * speed, -MAX_ELEVATION, MAX_ELEVATION);
   requestRender();
 }
 
 function endDrag(e) {
   if (e && e.pointerId !== undefined && e.pointerId !== drag.pointerId) return;
+  if (!drag.active) return;
   drag.active = false;
   drag.pointerId = null;
+  // Keep the azimuth bounded without disturbing the easing offset.
+  const turns = Math.round(target.angleY / (Math.PI * 2)) * Math.PI * 2;
+  target.angleY -= turns;
+  camera.angleY -= turns;
+  requestRender();                            // final full-quality frame
 }
 
 /* Match the backing store to the CSS size times devicePixelRatio so the
