@@ -2,7 +2,7 @@
 
 An interactive 3D cone of the HSV colour space, drawn with a hand-written camera and perspective projection on a plain 2D canvas.
 
-**Live demo:** https://matinmonshizadeh.github.io/3D-HSV-Color-Visualizer/
+**Live demo:** https://matinmonshizadeh.github.io/3d-hsv-color-visualizer/
 
 ![Demo: drag to rotate, move the sliders, switch hue mode](docs/demo.gif)
 
@@ -38,13 +38,13 @@ This is a personal project I built to get a feel for how the HSV colour model ma
 
 ## Usage
 
-Open the live demo: https://matinmonshizadeh.github.io/3D-HSV-Color-Visualizer/
+Open the live demo: https://matinmonshizadeh.github.io/3d-hsv-color-visualizer/
 
 Or run it locally. There is nothing to install or build:
 
 ```bash
-git clone https://github.com/matinmonshizadeh/3D-HSV-Color-Visualizer.git
-cd 3D-HSV-Color-Visualizer
+git clone https://github.com/matinmonshizadeh/3d-hsv-color-visualizer.git
+cd 3d-hsv-color-visualizer
 ```
 
 Then open `index.html` in a browser, or serve the folder:
