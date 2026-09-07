@@ -44,6 +44,7 @@ h1 {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 280px;
   height: 280px;
+  touch-action: none; /* let pointer drags orbit the view on touch screens instead of scrolling */
 }
 
 .controls-wrapper {

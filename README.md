@@ -1,47 +1,79 @@
-# 3D-HSV-Color-Visualizer
+# 3D HSV Color Visualizer
 
-An interactive web-based tool to **visualize the HSV (Hue, Saturation, Value) color space in 3D as an inverted cone**.  
-It allows you to explore colors by adjusting sliders for Hue, Saturation, and Value, while viewing a rotatable 3D model and a live preview of the selected color.
-- Click [3D HSV Color Visualizer](https://matinmonshizadeh.github.io/3D-HSV-Color-Visualizer/) to run it!
+An interactive 3D cone of the HSV colour space, drawn with a hand-written camera and perspective projection on a plain 2D canvas.
 
-![Cone](https://github.com/user-attachments/assets/d88f1a75-dc37-4f99-a207-dbad17d21445)
+**Live demo:** https://matinmonshizadeh.github.io/3D-HSV-Color-Visualizer/
 
+![Demo: drag to rotate, move the sliders, switch hue mode](docs/demo.gif)
 
-## 📖 Description
+![Screenshot of the visualizer](docs/screenshot.png)
 
-The HSV color model is represented as a **cone**:
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-- **Hue (H):** wraps around the base of the cone (circular dimension).  
-- **Saturation (S):** extends radially from the center (low saturation in the middle, high at the edges).  
-- **Value (V):** runs vertically along the height (bright at the top, dark at the bottom).
+## Overview
 
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/ee134791-832e-44eb-a853-51385de02e80" />
+This is a personal project I built to get a feel for how the HSV colour model maps onto a solid shape. It renders the HSV cone in 3D and lets you pick a colour with sliders while a marker shows where that colour sits on the cone. It uses no libraries: the orbit camera, the world-to-view transform, the perspective projection, the depth sorting and the HSV to RGB conversion are all written from scratch in about 500 lines of JavaScript. It is a single static page, so it runs by opening `index.html` or from GitHub Pages.
 
-The visualization uses **HTML Canvas** for rendering the 3D cone with basic perspective projection.  
-You can drag the mouse on the canvas to rotate the view.  
+## Features
 
-The tool also supports **two hue modes**:
-- Standard degrees (**0–360**)  
-- OpenCV-style range (**0–179**)  
+- 3D HSV cone with a full hue disc on top and the black apex at the bottom
+- Sliders and number boxes for Hue, Saturation and Value
+- Marker on the cone for the selected colour, drawn as a dashed ring when it is on the far side
+- Live colour preview with RGB and HEX
+- Hue in degrees (0-360) or in the OpenCV range (0-179), converted exactly
+- Drag with the mouse, a finger or a pen to orbit the view
+- Sharp rendering on HiDPI screens and at every responsive breakpoint
 
-This project is built with **pure JavaScript** (no external libraries) and runs in any modern browser.
+## How it works
 
----
+**Cone geometry.** Hue is the angle around the vertical axis, Saturation is the distance from the axis, and Value is the height. The cone stands on its apex: V = 0 is the black point at the origin and V = 255 is the coloured disc at the top. A colour maps to the point with angle H, height V/255 x HEIGHT and radius S/255 x RADIUS x V/255. The mesh is 48 hue segments by 24 rings for the side and 8 saturation rings for the disc, each triangle coloured with the HSV value at its centre.
 
-## ✨ Features
+**Camera.** An orbit camera sits on a sphere around the middle of the cone. Two angles (azimuth and elevation) give its position, and a look-at basis is built from it: forward points at the target, right is forward x world-up, and up is right x forward. Elevation is clamped just short of the poles so the basis never degenerates.
 
-- 🌀 Interactive 3D cone visualization of HSV color space  
-- 🎚️ Sliders for adjusting **Hue (H)**, **Saturation (S)**, and **Value (V)**  
-- 🔄 Support for **Hue in degrees (0–360)** or **OpenCV range (0–179)**  
-- 🎨 Real-time **color preview box** with RGB and HEX code  
-- 🖱️ Mouse-drag rotation for orbiting the 3D view  
-- 🧭 Labeled axes for Value, Saturation, and Hue  
-- 📍 Marker indicating the currently selected color on the cone  
+**Projection.** Each world point is expressed in the camera basis, then projected with a pinhole model: screen x = cx + f x / z, screen y = cy - f y / z. Points on or behind the near plane are flagged and culled instead of drawn. Triangles facing away from the camera are dropped using the analytic surface normal, and the rest are sorted far to near and filled in that order (painter's algorithm).
 
----
+**HSV to RGB.** The standard sector formula: chroma c = v s, the secondary component x = c (1 - |(h/60 mod 2) - 1|), and an offset m = v - c added to each channel. Hue is wrapped into [0, 360) so 360 and 0 both give red.
 
-## 🚀 Usage
+**OpenCV hue mode.** OpenCV stores 8-bit hue as degrees / 2 so it fits in a byte, giving a range of 0-179. In this mode the slider runs 0-179 and the value is doubled before conversion, so 179 maps to 358 degrees exactly as it does in OpenCV.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/3d-hsv-visualizer.git
+## Usage
+
+Open the live demo: https://matinmonshizadeh.github.io/3D-HSV-Color-Visualizer/
+
+Or run it locally. There is nothing to install or build:
+
+```bash
+git clone https://github.com/matinmonshizadeh/3D-HSV-Color-Visualizer.git
+cd 3D-HSV-Color-Visualizer
+```
+
+Then open `index.html` in a browser, or serve the folder:
+
+```bash
+python -m http.server 8000
+```
+
+and visit http://localhost:8000.
+
+## Project structure
+
+```
+.
+├── index.html      page markup and controls
+├── styles.css      layout and styling
+├── src/
+│   └── app.js      state, camera, projection, colour, drawing, events
+├── docs/           demo GIF and screenshot
+├── LICENSE
+└── README.md
+```
+
+## Limitations and future work
+
+- Depth is handled with back-face culling plus a painter's sort, not a depth buffer, so rendering is limited to convex shapes like this cone.
+- There is no lighting or shading; every triangle is a flat HSV colour.
+- The view can only be rotated. Zoom, keyboard control and a WebGL renderer would be natural next steps.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
